@@ -432,6 +432,7 @@ def goToHeroes():
         global login_attempts
         login_attempts = 0
 
+    time.sleep(2)
     solveCapcha()
     # time.sleep(5)
     clickBtn(hero_img)
@@ -483,7 +484,7 @@ def login():
     if not clickBtn(select_metamask_no_hover_img, name='selectMetamaskBtn'):
         if clickBtn(select_wallet_hover_img, name='selectMetamaskHoverBtn', threshold = ct['select_wallet_buttons'] ):
             pass
-            # o ideal era que ele alternasse entre checar cada um dos 2 por um tempo 
+            # o ideal era que ele alternasse entre checar cada um dos 2 por um tempo
             # print('sleep in case there is no metamask text removed')
             # time.sleep(20)
     else:
@@ -511,7 +512,8 @@ def login():
 
 def refreshHeroes():
     goToHeroes()
-
+    time.sleep(1)
+    solveCapcha()
     if c['select_heroes_mode'] == "full":
         logger("Sending heroes with full stamina bar to work!")
     elif c['select_heroes_mode'] == "green":
@@ -537,33 +539,80 @@ def refreshHeroes():
     logger('{} heroes sent to work so far'.format(hero_clicks))
     goToGame()
 
+def changeBrowser(name = "firefox"):
+    if "firefox" == name:
+        pyautogui.moveTo(378, 13, 1)
+        pyautogui.click()
+        logger('Changed to firefox')
+    else:
+        pyautogui.moveTo(549, 13,1)
+        pyautogui.click()
+        logger('Changed to chrome')
 
+def isBtnVisible(img,name=None, timeout=3, threshold = ct['default']):
+    logger(None, progress_indicator=True)
+    if not name is None:
+        pass
+        # print('waiting for "{}" button, timeout of {}s'.format(name, timeout))
+    start = time.time()
+    clicked = False
+    for i in range(timeout):
+        matches = positions(img, threshold=threshold)
+        if(len(matches)==0):
+            time.sleep(0.5)
+        else:
+            return True
+    return False
 
+def loginIfNeeded():
+    if isBtnVisible(connect_wallet_btn_img, name='connectWalletBtn', timeout = 10):
+        logger("Connect button visible need to login")
+        login()
+        return True
+    else:
+        logger("No need to relog, no connect button")
+        return False
 
 def main():
     time.sleep(5)
     t = c['time_intervals']
 
-    last = {
+    last_firefox = {
+    "login" : 0,
+    "heroes" : 0,
+    "new_map" : 0,
+    "refresh_heroes" : 0
+    }
+    last_chrome = {
     "login" : 0,
     "heroes" : 0,
     "new_map" : 0,
     "refresh_heroes" : 0
     }
 
+    browser_counter = 0
+    current_browser = "chrome"
     while True:
+        if browser_counter % 5 == 0:
+            if browser_counter % 10 >= 5:
+                changeBrowser("firefox")
+                current_browser = "firefox"
+            else:
+                changeBrowser("chrome")
+                current_browser = "chrome"
+        if current_browser == "chrome":
+            last = last_chrome
+        else:
+            last = last_firefox
+
         now = time.time()
+        logger("Checking if game has disconnected.")
+        loginIfNeeded()
 
         if now - last["heroes"] > t['send_heroes_for_work'] * 60:
             last["heroes"] = now
             logger('Sending heroes to work.')
             refreshHeroes()
-
-        if now - last["login"] > t['check_for_login'] * 60:
-            logger("Checking if game has disconnected.")
-            sys.stdout.flush()
-            last["login"] = now
-            login()
 
         if now - last["new_map"] > t['check_for_new_map_button']:
             last["new_map"] = now
@@ -584,7 +633,10 @@ def main():
         sys.stdout.flush()
 
         time.sleep(1)
-
+        browser_counter = browser_counter + 1
+        logger(f"Current browser {current_browser} counter {browser_counter}")
+        print(f'{current_browser} last heroes work: {time.strftime("%d/%m/%Y %H:%M:%S", time.gmtime(last["heroes"]))}')
+        print(f'{current_browser} last heroes refresh: {time.strftime("%d/%m/%Y %H:%M:%S", time.gmtime(last["refresh_heroes"]))}')
 
 main()
 
